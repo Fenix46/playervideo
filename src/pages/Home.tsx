@@ -1,15 +1,26 @@
-
 import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import SidebarLayout from "@/components/layout/SidebarLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAppContext } from "@/context/AppContext";
 import { generateMockChannels } from "@/lib/api";
 import { Channel } from "@/types";
+import { toast } from "sonner";
 
 const Home = () => {
   const { state, dispatch } = useAppContext();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  useEffect(() => {
+    // Redirect from invalid routes (like /movies) to /home
+    if (location.pathname !== "/home" && location.pathname !== "/") {
+      navigate("/home");
+      toast.info("Pagina non trovata, reindirizzamento alla home", {
+        duration: 3000,
+      });
+    }
+  }, [location.pathname, navigate]);
   
   // Load mock channels if none exist
   useEffect(() => {

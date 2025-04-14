@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -107,6 +108,9 @@ const App = () => (
                 </AuthGuard>
               }
             />
+            
+            {/* Redirect /movies to home */}
+            <Route path="/movies" element={<Navigate to="/home" replace />} />
             
             {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />

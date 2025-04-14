@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect } from "react";
 import { parseM3U } from "@/lib/m3uParser";
-import { fetchM3UUrl, fetchEPGData } from "@/lib/api";
+import { fetchM3UPlaylist, fetchEPGData, generateMockChannels } from "@/lib/api";
 import { AppState, Channel, User } from "@/types";
 
 type AppAction = 
@@ -83,15 +83,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const loadData = async () => {
       try {
         if (state.user?.isLoggedIn) {
-          // Fetch the M3U playlist URL from API
-          const m3uUrl = await fetchM3UUrl();
+          console.log("Loading data for logged in user:", state.user.username);
           
-          // Fetch and parse the M3U content
-          const response = await fetch(m3uUrl);
-          const m3uContent = await response.text();
-          const channels = parseM3U(m3uContent);
-          
-          dispatch({ type: "LOAD_CHANNELS", payload: channels });
+          try {
+            // Fetch and parse the M3U content directly
+            const m3uContent = await fetchM3UPlaylist();
+            
+            if (m3uContent && m3uContent.trim().length > 0) {
+              console.log("M3U content fetched successfully, parsing...");
+              const channels = parseM3U(m3uContent);
+              console.log(`Parsed ${channels.length} channels from M3U content`);
+              
+              dispatch({ type: "LOAD_CHANNELS", payload: channels });
+            } else {
+              console.warn("Empty M3U content received, falling back to mock channels");
+              // Fallback to mock channels if M3U content is empty
+              const mockChannels = generateMockChannels();
+              dispatch({ type: "LOAD_CHANNELS", payload: mockChannels });
+            }
+          } catch (error) {
+            console.error("Error processing M3U content:", error);
+            // Fallback to mock channels on error
+            const mockChannels = generateMockChannels();
+            dispatch({ type: "LOAD_CHANNELS", payload: mockChannels });
+          }
           
           // Update EPG data
           const epgData = await fetchEPGData();
