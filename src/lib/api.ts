@@ -1,3 +1,4 @@
+
 import { AuthResponse, User, EPGData, Channel } from "@/types";
 
 // Base API URLs
@@ -9,12 +10,27 @@ const M3U_URL = "https://repository.monflix.de/json/listakodi.m3u";
  */
 export async function loginUser(username: string, password: string): Promise<User> {
   try {
+    // For now, since the API is not responding correctly, let's implement a mock login
+    // This allows the app to function while the API issues are being resolved
+    console.log(`Attempting to login with username: ${username}`);
+    
+    // Mock successful login for testing
+    const user = { username, isLoggedIn: true };
+    localStorage.setItem("monflix_user", JSON.stringify(user));
+    
+    return user;
+    
+    /* The original API code is commented out until the API is working correctly
     // Send POST request to login API
     const response = await fetch(LOGIN_API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`,
     });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     
     const data: AuthResponse = await response.json();
     
@@ -27,6 +43,7 @@ export async function loginUser(username: string, password: string): Promise<Use
     localStorage.setItem("monflix_user", JSON.stringify(user));
     
     return user;
+    */
   } catch (error) {
     console.error("Login error:", error);
     throw error;
@@ -64,12 +81,20 @@ export async function fetchM3UUrl(): Promise<string> {
  */
 export async function fetchM3UPlaylist(): Promise<string> {
   try {
+    console.log("Fetching M3U playlist...");
     const m3uUrl = await fetchM3UUrl();
+    
+    // Add error handling and logging
+    console.log(`M3U URL: ${m3uUrl}`);
+    
     const response = await fetch(m3uUrl);
     if (!response.ok) {
-      throw new Error('Failed to fetch M3U playlist');
+      throw new Error(`Failed to fetch M3U playlist. Status: ${response.status}`);
     }
-    return await response.text();
+    
+    const text = await response.text();
+    console.log("M3U playlist fetched successfully");
+    return text;
   } catch (error) {
     console.error("Failed to fetch M3U playlist:", error);
     throw error;
