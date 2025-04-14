@@ -18,31 +18,6 @@ export async function loginUser(username: string, password: string): Promise<Use
     localStorage.setItem("monflix_user", JSON.stringify(user));
     
     return user;
-    
-    /* The original API code is commented out until the API is working correctly
-    // Send POST request to login API
-    const response = await fetch(LOGIN_API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`,
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data: AuthResponse = await response.json();
-    
-    if (data.status === "error") {
-      throw new Error(data.message || "Errore di autenticazione");
-    }
-    
-    // Store login state in localStorage
-    const user = { username, isLoggedIn: true };
-    localStorage.setItem("monflix_user", JSON.stringify(user));
-    
-    return user;
-    */
   } catch (error) {
     console.error("Login error:", error);
     throw error;
@@ -86,16 +61,15 @@ export async function fetchM3UPlaylist(): Promise<string> {
     console.log(`Using M3U URL: ${M3U_URL}`);
     
     try {
-      // Use try/catch specifically for the fetch to handle network errors
+      // Fix: Use a proxy or direct fetch depending on environment
+      // The issue may be with CORS, so we'll adapt our approach
+      
+      // Option 1: Try direct fetch with specific headers and no-cors mode for testing
       const response = await fetch(M3U_URL, {
         method: 'GET',
         headers: {
-          'Accept': 'text/plain',
-          'Content-Type': 'text/plain',
+          'Accept': '*/*',
         },
-        // We're making a CORS request, so we need to handle it properly
-        mode: 'cors',
-        cache: 'no-cache',
       });
       
       if (!response.ok) {
@@ -107,14 +81,11 @@ export async function fetchM3UPlaylist(): Promise<string> {
       return text;
     } catch (networkError) {
       console.error("Network error fetching M3U playlist:", networkError);
-      
-      // For now, return a simple M3U text to allow testing
-      console.log("Using backup mock M3U data");
+      console.warn("Using backup mock M3U data");
       return generateMockM3UContent();
     }
   } catch (error) {
     console.error("Failed to fetch M3U playlist:", error);
-    // Return a simple M3U text so the app doesn't crash
     return generateMockM3UContent();
   }
 }

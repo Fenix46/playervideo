@@ -3,6 +3,7 @@ import React, { createContext, useContext, useReducer, useEffect } from "react";
 import { parseM3U } from "@/lib/m3uParser";
 import { fetchM3UPlaylist, fetchEPGData, generateMockChannels } from "@/lib/api";
 import { AppState, Channel, User } from "@/types";
+import { toast } from "sonner";
 
 type AppAction = 
   | { type: "SET_USER"; payload: User | null }
@@ -94,18 +95,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const channels = parseM3U(m3uContent);
               console.log(`Parsed ${channels.length} channels from M3U content`);
               
-              dispatch({ type: "LOAD_CHANNELS", payload: channels });
+              if (channels.length > 0) {
+                dispatch({ type: "LOAD_CHANNELS", payload: channels });
+                toast.success(`Caricati ${channels.length} canali`);
+              } else {
+                console.warn("No channels parsed from M3U content, falling back to mock channels");
+                const mockChannels = generateMockChannels();
+                dispatch({ type: "LOAD_CHANNELS", payload: mockChannels });
+                toast.info("Utilizzando canali di esempio");
+              }
             } else {
               console.warn("Empty M3U content received, falling back to mock channels");
               // Fallback to mock channels if M3U content is empty
               const mockChannels = generateMockChannels();
               dispatch({ type: "LOAD_CHANNELS", payload: mockChannels });
+              toast.info("Utilizzando canali di esempio");
             }
           } catch (error) {
             console.error("Error processing M3U content:", error);
             // Fallback to mock channels on error
             const mockChannels = generateMockChannels();
             dispatch({ type: "LOAD_CHANNELS", payload: mockChannels });
+            toast.error("Errore nel caricamento dei canali, utilizzando canali di esempio");
           }
           
           // Update EPG data
@@ -114,6 +125,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       } catch (error) {
         console.error("Failed to refresh data:", error);
+        toast.error("Errore durante l'aggiornamento dei dati");
       }
     };
 
