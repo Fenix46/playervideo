@@ -1,45 +1,34 @@
-
 import { AuthResponse, User, EPGData, Channel } from "@/types";
 
-// Base API URL - replace with your actual API endpoint
-const API_BASE_URL = "https://api.monflix.it";
-
-// Mock data for development
-const MOCK_DATA = {
-  m3uUrl: "https://example.com/playlist.m3u",
-  epgData: {} as EPGData,
-};
+// Base API URLs
+const LOGIN_API_URL = "https://monflix.de/api_login.php";
+const M3U_URL = "https://repository.monflix.de/json/listakodi.m3u";
 
 /**
  * Authenticate a user
  */
 export async function loginUser(username: string, password: string): Promise<User> {
   try {
-    // In a real application, this would be a POST request to your API
-    // const response = await fetch(`${API_BASE_URL}/auth/login`, {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({ username, password }),
-    // });
+    // Send POST request to login API
+    const response = await fetch(LOGIN_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`,
+    });
     
-    // For development/testing, simulate API response
-    const mockResponse: AuthResponse = { 
-      status: username && password ? "success" : "error",
-      message: username && password ? "Login successful" : "Invalid credentials",
-    };
+    const data: AuthResponse = await response.json();
     
-    if (mockResponse.status === "error") {
-      throw new Error(mockResponse.message || "Errore di autenticazione");
+    if (data.status === "error") {
+      throw new Error(data.message || "Errore di autenticazione");
     }
     
     // Store login state in localStorage
-    localStorage.setItem("monflix_user", JSON.stringify({ 
-      username, 
-      isLoggedIn: true 
-    }));
+    const user = { username, isLoggedIn: true };
+    localStorage.setItem("monflix_user", JSON.stringify(user));
     
-    return { username, isLoggedIn: true };
+    return user;
   } catch (error) {
+    console.error("Login error:", error);
     throw error;
   }
 }
@@ -63,19 +52,26 @@ export function getCurrentUser(): User | null {
 }
 
 /**
- * Fetch the M3U playlist URL from the API
+ * Fetch the M3U playlist URL
  */
 export async function fetchM3UUrl(): Promise<string> {
+  // Return the static M3U URL
+  return M3U_URL;
+}
+
+/**
+ * Fetch and parse the M3U playlist
+ */
+export async function fetchM3UPlaylist(): Promise<string> {
   try {
-    // In a real application, this would be an API call
-    // const response = await fetch(`${API_BASE_URL}/playlist/url`);
-    // const data = await response.json();
-    // return data.url;
-    
-    // For development/testing, return mock URL
-    return MOCK_DATA.m3uUrl;
+    const m3uUrl = await fetchM3UUrl();
+    const response = await fetch(m3uUrl);
+    if (!response.ok) {
+      throw new Error('Failed to fetch M3U playlist');
+    }
+    return await response.text();
   } catch (error) {
-    console.error("Failed to fetch M3U URL:", error);
+    console.error("Failed to fetch M3U playlist:", error);
     throw error;
   }
 }
