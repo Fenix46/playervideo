@@ -2,7 +2,7 @@ import { AuthResponse, User, EPGData, Channel } from "@/types";
 
 // Base API URLs
 const LOGIN_API_URL = "https://monflix.de/api_login.php";
-const M3U_URL = "https://repository.monflix.de/json/listakodi.m3u";
+const M3U_URL = "https://monflix.de/api_lista.php";
 
 /**
  * Authenticate a user
@@ -56,15 +56,9 @@ export async function fetchM3UUrl(): Promise<string> {
 export async function fetchM3UPlaylist(): Promise<string> {
   try {
     console.log("Fetching M3U playlist...");
-    
-    // Instead of using another API call, use the direct M3U URL
     console.log(`Using M3U URL: ${M3U_URL}`);
     
     try {
-      // Fix: Use a proxy or direct fetch depending on environment
-      // The issue may be with CORS, so we'll adapt our approach
-      
-      // Option 1: Try direct fetch with specific headers and no-cors mode for testing
       const response = await fetch(M3U_URL, {
         method: 'GET',
         headers: {
