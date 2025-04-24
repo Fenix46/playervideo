@@ -1,8 +1,10 @@
+
 import { AuthResponse, User, EPGData, Channel } from "@/types";
 
 // Base API URLs
 const LOGIN_API_URL = "https://monflix.de/api_login.php";
 const M3U_URL = "https://monflix.de/api_lista.php";
+const EPG_URL = "https://monflix.de/api_epg.php"; // New EPG endpoint
 
 /**
  * Authenticate a user
@@ -114,15 +116,31 @@ https://example.com/stream3.mpd`;
  */
 export async function fetchEPGData(): Promise<EPGData> {
   try {
-    // In a real application, this would be an API call
-    // const response = await fetch(`${API_BASE_URL}/epg`);
-    // return await response.json();
+    console.log("Fetching EPG data...");
     
-    // For development/testing, generate mock EPG data
-    return generateMockEPGData();
+    try {
+      const response = await fetch(EPG_URL, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("EPG data fetched successfully");
+      return data;
+    } catch (networkError) {
+      console.error("Network error fetching EPG data:", networkError);
+      console.warn("Using mock EPG data");
+      return generateMockEPGData();
+    }
   } catch (error) {
     console.error("Failed to fetch EPG data:", error);
-    throw error;
+    return generateMockEPGData();
   }
 }
 
@@ -131,7 +149,7 @@ export async function fetchEPGData(): Promise<EPGData> {
  */
 function generateMockEPGData(): EPGData {
   const mockEPG: EPGData = {};
-  const channels = ["channel_1", "channel_2", "channel_3"];
+  const channels = ["channel_1", "channel_2", "channel_3", "channel_4", "channel_5"];
   const now = new Date();
   
   channels.forEach(channelId => {

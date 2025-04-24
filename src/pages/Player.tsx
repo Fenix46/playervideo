@@ -3,16 +3,16 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAppContext } from "@/context/AppContext";
-import { ArrowLeft, Pause, Play, Settings, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Settings } from "lucide-react";
 import { EPGItem } from "@/types";
+import ShakaVideoPlayer from "@/components/player/ShakaVideoPlayer";
 
 const Player = () => {
   const { channelId } = useParams<{ channelId: string }>();
   const { state } = useAppContext();
   const navigate = useNavigate();
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
   const [currentEpg, setCurrentEpg] = useState<EPGItem | null>(null);
+  const [playerError, setPlayerError] = useState<any>(null);
 
   const channel = state.channelGroups
     .flatMap(group => group.channels)
@@ -39,13 +39,10 @@ const Player = () => {
     navigate(-1);
   };
 
-  // Mock player controls
-  const togglePlay = () => {
-    setIsPlaying(!isPlaying);
-  };
-
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
+  // Handle player errors
+  const handlePlayerError = (error: any) => {
+    console.error("Player error:", error);
+    setPlayerError(error);
   };
   
   if (!channel) {
@@ -75,65 +72,46 @@ const Player = () => {
           </Button>
         </div>
         
-        {/* Mock video player - in a real app, this would be replaced with an actual video player */}
-        <div className="w-full h-full flex items-center justify-center">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold mb-2">{channel.title}</h2>
-            <p className="text-muted-foreground">{channel.groupTitle}</p>
-            {currentEpg && (
-              <div className="mt-4">
-                <p className="font-medium">{currentEpg.title}</p>
-                <p className="text-sm text-muted-foreground">
-                  {new Date(currentEpg.startTime).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} - 
-                  {new Date(currentEpg.endTime).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </div>
-            )}
-          </div>
+        {/* Settings button */}
+        <div className="absolute top-4 right-4 z-10">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="bg-black/50 backdrop-blur-sm hover:bg-black/70"
+          >
+            <Settings size={20} />
+          </Button>
         </div>
         
-        {/* Player controls */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={togglePlay}
-                className="hover:bg-white/10"
-              >
-                {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-              </Button>
-              
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={toggleMute}
-                className="hover:bg-white/10"
-              >
-                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-              </Button>
-            </div>
-            
+        {/* Shaka Video Player */}
+        {!playerError ? (
+          <ShakaVideoPlayer 
+            channel={channel}
+            onError={handlePlayerError}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-center p-4">
             <div>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="hover:bg-white/10"
-              >
-                <Settings size={20} />
-              </Button>
+              <h2 className="text-xl font-bold mb-2">Errore di riproduzione</h2>
+              <p className="text-muted-foreground mb-4">
+                Impossibile riprodurre questo canale. Prova a selezionare un altro canale.
+              </p>
+              <Button onClick={handleBack}>Torna ai canali</Button>
             </div>
           </div>
-          
-          {/* Progress bar */}
-          <div className="mt-2 w-full bg-white/20 h-1 rounded-full overflow-hidden">
-            <div 
-              className="bg-primary h-full" 
-              style={{ width: currentEpg ? `${calculateProgress(currentEpg)}%` : "0%" }}
-            />
+        )}
+        
+        {/* Progress bar for EPG */}
+        {currentEpg && (
+          <div className="absolute bottom-0 left-0 right-0 px-4 pb-2">
+            <div className="mt-2 w-full bg-white/20 h-1 rounded-full overflow-hidden">
+              <div 
+                className="bg-primary h-full" 
+                style={{ width: `${calculateProgress(currentEpg)}%` }}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
       
       {/* EPG information */}
