@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Film, Tv, Play } from "lucide-react";
-import { ScMovie, ScSeries, ScEpisode, ScSeason } from "@/types/vod";
+import { Search, Film, Tv, Play, ChevronLeft, Home } from "lucide-react";
+import { ScMovie, ScSeries, ScEpisode, ScCategory, CATEGORY_MAPPING } from "@/types/vod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,15 +13,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import SidebarLayout from "@/components/layout/SidebarLayout";
 import { 
   initStreamingCommunity, 
   searchMovies, 
   searchSeries, 
   getSeasonCount, 
   getEpisodes, 
-  getTmdbInfo, 
-  CATEGORY_MAPPING
+  getTmdbInfo,
+  getMovieCategories,
+  fetchMoviesByCategory
 } from "@/lib/scApi";
 
 const VOD: React.FC = () => {
@@ -37,10 +40,20 @@ const VOD: React.FC = () => {
   const [episodes, setEpisodes] = useState<ScEpisode[]>([]);
   const [showSeasonDialog, setShowSeasonDialog] = useState(false);
   const [showEpisodeDialog, setShowEpisodeDialog] = useState(false);
+  const [categories, setCategories] = useState<ScCategory[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<ScCategory | null>(null);
+  const [categoryMovies, setCategoryMovies] = useState<ScMovie[]>([]);
+  const [loadingCategory, setLoadingCategory] = useState(false);
 
-  // Initialize StreamingCommunity on component mount
+  // Initialize StreamingCommunity and load categories on component mount
   useEffect(() => {
-    initStreamingCommunity();
+    const init = async () => {
+      await initStreamingCommunity();
+      const movieCategories = getMovieCategories();
+      setCategories(movieCategories);
+    };
+    
+    init();
   }, []);
 
   // Handle search
@@ -51,62 +64,40 @@ const VOD: React.FC = () => {
     }
 
     setLoading(true);
+    setSelectedCategory(null);
 
     try {
       if (activeTab === "movies") {
         const results = await searchMovies(searchTerm);
-        
-        // Enrich with TMDB info
-        const enrichedMovies = await Promise.all(
-          results.map(async (movie) => {
-            const tmdbData = await getTmdbInfo(movie.name, "movie");
-            
-            if (tmdbData?.results?.length > 0) {
-              const movieInfo = tmdbData.results[0];
-              return {
-                ...movie,
-                poster_path: movieInfo.poster_path,
-                backdrop_path: movieInfo.backdrop_path,
-                overview: movieInfo.overview,
-                tmdbInfo: movieInfo
-              };
-            }
-            
-            return movie;
-          })
-        );
-        
-        setMovies(enrichedMovies);
+        setMovies(results);
+        setCategoryMovies([]);
       } else {
         const results = await searchSeries(searchTerm);
-        
-        // Enrich with TMDB info
-        const enrichedSeries = await Promise.all(
-          results.map(async (series) => {
-            const tmdbData = await getTmdbInfo(series.name, "tv");
-            
-            if (tmdbData?.results?.length > 0) {
-              const seriesInfo = tmdbData.results[0];
-              return {
-                ...series,
-                poster_path: seriesInfo.poster_path,
-                backdrop_path: seriesInfo.backdrop_path,
-                overview: seriesInfo.overview,
-                tmdbInfo: seriesInfo
-              };
-            }
-            
-            return series;
-          })
-        );
-        
-        setSeries(enrichedSeries);
+        setSeries(results);
       }
     } catch (error) {
       console.error("Search error:", error);
       toast.error(`Errore durante la ricerca di ${activeTab === "movies" ? "film" : "serie TV"}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle category selection
+  const handleCategorySelect = async (category: ScCategory) => {
+    setSelectedCategory(category);
+    setLoadingCategory(true);
+    setCategoryMovies([]);
+    setMovies([]);
+    
+    try {
+      const moviesForCategory = await fetchMoviesByCategory(category);
+      setCategoryMovies(moviesForCategory);
+    } catch (error) {
+      console.error(`Error loading movies for category ${category.name}:`, error);
+      toast.error(`Errore nel caricamento dei film per la categoria ${category.name}`);
+    } finally {
+      setLoadingCategory(false);
     }
   };
 
@@ -183,10 +174,36 @@ const VOD: React.FC = () => {
     });
   };
 
+  // Go back to home
+  const handleBackToHome = () => {
+    navigate('/home');
+  };
+
+  // Clear search results and category selection
+  const handleClearSelection = () => {
+    setMovies([]);
+    setCategoryMovies([]);
+    setSelectedCategory(null);
+    setSearchTerm('');
+  };
+
   return (
-    <div className="min-h-screen bg-background pb-10">
+    <SidebarLayout>
       <div className="monflix-container py-6">
-        <h1 className="text-3xl font-bold mb-6">Film e Serie TV</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold">Film e Serie TV</h1>
+          <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleBackToHome}
+              className="flex items-center gap-2"
+            >
+              <Home size={16} />
+              <span>Home</span>
+            </Button>
+          </div>
+        </div>
         
         <Tabs defaultValue="movies" value={activeTab} onValueChange={setActiveTab} className="mb-6">
           <TabsList className="w-full md:w-auto">
@@ -217,58 +234,157 @@ const VOD: React.FC = () => {
                 <Search size={16} />
                 <span>Cerca</span>
               </Button>
+              {(movies.length > 0 || categoryMovies.length > 0 || series.length > 0) && (
+                <Button 
+                  variant="outline"
+                  onClick={handleClearSelection}
+                >
+                  Cancella
+                </Button>
+              )}
             </div>
           </div>
           
           <TabsContent value="movies" className="mt-6">
+            {/* Categories section */}
+            {activeTab === "movies" && !selectedCategory && movies.length === 0 && (
+              <div className="mb-8">
+                <h2 className="text-xl font-bold mb-4">Categorie Film</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {categories.map((category) => (
+                    <Card 
+                      key={category.id} 
+                      className="cursor-pointer hover:bg-accent transition-colors"
+                      onClick={() => handleCategorySelect(category)}
+                    >
+                      <CardContent className="p-4 flex items-center justify-center h-24">
+                        <span className="text-center font-medium">{category.name}</span>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Selected category */}
+            {selectedCategory && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setSelectedCategory(null)}
+                    className="flex items-center gap-1"
+                  >
+                    <ChevronLeft size={16} />
+                    <span>Indietro</span>
+                  </Button>
+                  <h2 className="text-xl font-bold">Categoria: {selectedCategory.name}</h2>
+                </div>
+                
+                {loadingCategory ? (
+                  <div className="text-center py-10">
+                    <p className="text-lg">Caricamento...</p>
+                  </div>
+                ) : categoryMovies.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {categoryMovies.map((movie) => (
+                      <Card key={movie.id} className="overflow-hidden flex flex-col">
+                        <div className="aspect-[2/3] relative overflow-hidden">
+                          {movie.poster_path ? (
+                            <img 
+                              src={`https://media.themoviedb.org/t/p/w300_and_h450_bestv2${movie.poster_path}`} 
+                              alt={movie.name} 
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-muted flex items-center justify-center">
+                              <Film size={48} className="text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        <CardContent className="flex-1 p-4">
+                          <CardTitle className="text-base">{movie.name}</CardTitle>
+                          {movie.overview && (
+                            <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
+                              {movie.overview}
+                            </p>
+                          )}
+                        </CardContent>
+                        <CardFooter className="pt-0 px-4 pb-4">
+                          <Button 
+                            onClick={() => handlePlayMovie(movie)} 
+                            className="w-full flex items-center gap-2"
+                          >
+                            <Play size={16} />
+                            <span>Guarda</span>
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-10">
+                    <p className="text-lg">Nessun film trovato in questa categoria.</p>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Search results */}
             {loading ? (
               <div className="text-center py-10">
                 <p className="text-lg">Caricamento...</p>
               </div>
             ) : movies.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {movies.map((movie) => (
-                  <Card key={movie.id} className="overflow-hidden flex flex-col">
-                    <div className="aspect-[2/3] relative overflow-hidden">
-                      {movie.poster_path ? (
-                        <img 
-                          src={`https://media.themoviedb.org/t/p/w300_and_h450_bestv2${movie.poster_path}`} 
-                          alt={movie.name} 
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-muted flex items-center justify-center">
-                          <Film size={48} className="text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-                    <CardContent className="flex-1 p-4">
-                      <CardTitle className="text-base">{movie.name}</CardTitle>
-                      {movie.overview && (
-                        <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
-                          {movie.overview}
-                        </p>
-                      )}
-                    </CardContent>
-                    <CardFooter className="pt-0 px-4 pb-4">
-                      <Button 
-                        onClick={() => handlePlayMovie(movie)} 
-                        className="w-full flex items-center gap-2"
-                      >
-                        <Play size={16} />
-                        <span>Guarda</span>
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
+              <div>
+                <h2 className="text-xl font-bold mb-4">Risultati ricerca</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {movies.map((movie) => (
+                    <Card key={movie.id} className="overflow-hidden flex flex-col">
+                      <div className="aspect-[2/3] relative overflow-hidden">
+                        {movie.poster_path ? (
+                          <img 
+                            src={`https://media.themoviedb.org/t/p/w300_and_h450_bestv2${movie.poster_path}`} 
+                            alt={movie.name} 
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-muted flex items-center justify-center">
+                            <Film size={48} className="text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <CardContent className="flex-1 p-4">
+                        <CardTitle className="text-base">{movie.name}</CardTitle>
+                        {movie.overview && (
+                          <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
+                            {movie.overview}
+                          </p>
+                        )}
+                      </CardContent>
+                      <CardFooter className="pt-0 px-4 pb-4">
+                        <Button 
+                          onClick={() => handlePlayMovie(movie)} 
+                          className="w-full flex items-center gap-2"
+                        >
+                          <Play size={16} />
+                          <span>Guarda</span>
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
               </div>
-            ) : (
+            ) : searchTerm && !selectedCategory ? (
               <div className="text-center py-10">
                 <p className="text-lg">
-                  {searchTerm ? "Nessun film trovato. Prova con un'altra ricerca." : "Cerca un film"}
+                  Nessun film trovato. Prova con un'altra ricerca.
                 </p>
               </div>
-            )}
+            ) : null}
           </TabsContent>
           
           <TabsContent value="series" className="mt-6">
@@ -286,6 +402,7 @@ const VOD: React.FC = () => {
                           src={`https://media.themoviedb.org/t/p/w300_and_h450_bestv2${series.poster_path}`}
                           alt={series.name} 
                           className="w-full h-full object-cover"
+                          loading="lazy"
                         />
                       ) : (
                         <div className="w-full h-full bg-muted flex items-center justify-center">
@@ -330,16 +447,18 @@ const VOD: React.FC = () => {
           <DialogHeader>
             <DialogTitle>{selectedSeries?.name} - Stagioni</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {seasons.map((seasonNumber) => (
-              <Button 
-                key={seasonNumber}
-                onClick={() => handleShowEpisodes(seasonNumber)}
-              >
-                Stagione {seasonNumber + 1}
-              </Button>
-            ))}
-          </div>
+          <ScrollArea className="max-h-[60vh]">
+            <div className="grid gap-4 py-4">
+              {seasons.map((seasonNumber) => (
+                <Button 
+                  key={seasonNumber}
+                  onClick={() => handleShowEpisodes(seasonNumber)}
+                >
+                  Stagione {seasonNumber + 1}
+                </Button>
+              ))}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
       
@@ -351,24 +470,26 @@ const VOD: React.FC = () => {
               {selectedSeries?.name} - Stagione {selectedSeason !== null ? selectedSeason + 1 : ""}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-            {episodes.map((episode) => (
-              <Button 
-                key={episode.id}
-                onClick={() => handlePlayEpisode(episode)}
-                variant="outline"
-                className="justify-start h-auto py-3"
-              >
-                <div className="text-left">
-                  <div className="font-medium">Episodio {episode.number}</div>
-                  <div className="text-sm text-muted-foreground">{episode.title || `Episodio ${episode.number}`}</div>
-                </div>
-              </Button>
-            ))}
-          </div>
+          <ScrollArea className="max-h-[60vh]">
+            <div className="grid gap-4 py-4">
+              {episodes.map((episode) => (
+                <Button 
+                  key={episode.id}
+                  onClick={() => handlePlayEpisode(episode)}
+                  variant="outline"
+                  className="justify-start h-auto py-3"
+                >
+                  <div className="text-left">
+                    <div className="font-medium">Episodio {episode.number}</div>
+                    <div className="text-sm text-muted-foreground">{episode.title || `Episodio ${episode.number}`}</div>
+                  </div>
+                </Button>
+              ))}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
-    </div>
+    </SidebarLayout>
   );
 };
 

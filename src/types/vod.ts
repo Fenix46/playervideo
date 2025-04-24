@@ -11,6 +11,7 @@ export interface ScMovie {
   overview?: string;
   title?: string;
   tmdbInfo?: any;
+  genres?: number[];
 }
 
 export interface ScSeries {
@@ -24,6 +25,7 @@ export interface ScSeries {
   title?: string;
   tmdbInfo?: any;
   seasons_count?: number;
+  genres?: number[];
 }
 
 export interface ScEpisode {
@@ -50,3 +52,28 @@ export interface PlaybackSource {
   seriesId?: string;
   headers?: Record<string, string>;
 }
+
+export interface ScCategory {
+  id: string;
+  name: string;
+  genreIds: number[];
+  posterPath?: string;
+}
+
+export const CATEGORY_MAPPING: Record<string, number[]> = {
+  "Animazione": [19],
+  "Azione": [4, 13],
+  "Avventura": [11],
+  "Commedia": [12],
+  "Fantascienza": [10, 3],
+  "Guerra": [9, 17],
+  "Horror": [7],
+  "Dramma": [1],
+  "Family": [16, 25],
+  "Crime": [2],
+  "Story": [22],
+  "Mistery": [6],
+  "Romance": [15],
+  "Thriller": [5],
+  "Western": [20]
+};

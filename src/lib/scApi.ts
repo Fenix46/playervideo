@@ -1,5 +1,5 @@
-
 import { toast } from "sonner";
+import { CATEGORY_MAPPING } from "@/types/vod";
 
 // Domain and inertia version will be fetched from external sources
 let SC_DOMAIN = "streamingcommunity.family"; // Default fallback
@@ -12,50 +12,53 @@ const SC_HEADERS = {
   "X-Xsrf-Token": "eyJpdiI6IkVDK2VZUFVFUVhjTjFxeFhxQnVBZ0E9PSIsInZhbHVlIjoiZzQzWlhBQzdWM1Z6ZnJyOFl4MzdLMHJod0hKWEFFR3BPUUVhN0VXdkwzSWs1L0dNbkhRR1ZzUE5nSmJaRUdaeG45TjhlbTIvZWdsTEVSQ0FJYXRlejBZdHR4Y2ZoL0FmWldsNE1DL1NzSjlwaHMySWxuRTVKVHNGeWo5U1pEa3QiLCJtYWMiOiI5NjY1ZGUwZjhmYzJhYmFhMzA0YjA1Njg3NjAyNjcxZTNhZjAxMDk4YWEzNTY4ZWU2ZTMyOTYxMWU0ZGRkOWYzIiwidGFnIjoiIn0="
 };
 
-// Category mapping for StreamingCommunity
-export const CATEGORY_MAPPING = {
-  "Animazione": [19],
-  "Azione": [4, 13],
-  "Avventura": [11],
-  "Commedia": [12],
-  "Fantascienza": [10, 3],
-  "Guerra": [9, 17],
-  "Horror": [7],
-  "Dramma": [1],
-  "Family": [16, 25],
-  "Crime": [2],
-  "Story": [22],
-  "Mistery": [6],
-  "Romance": [15],
-  "Thriller": [5],
-  "Western": [20]
-};
-
 /**
  * Fetch the domain and inertia version from external sources
  */
 export const initStreamingCommunity = async (): Promise<void> => {
   try {
-    // Fetch domain
-    const domainResponse = await fetch("https://repository.monflix.de/domain.txt");
-    if (domainResponse.ok) {
-      SC_DOMAIN = (await domainResponse.text()).trim();
-      console.log(`Retrieved domain: ${SC_DOMAIN}`);
-    } else {
-      console.error("Failed to get domain from repository");
+    console.log("Initializing StreamingCommunity...");
+    
+    // Fetch domain with proper error handling
+    try {
+      const domainResponse = await fetch("https://repository.monflix.de/domain.txt");
+      if (domainResponse.ok) {
+        const domainText = await domainResponse.text();
+        if (domainText && domainText.trim()) {
+          SC_DOMAIN = domainText.trim();
+          console.log(`Retrieved domain: ${SC_DOMAIN}`);
+        } else {
+          console.error("Domain file is empty or contains whitespace only");
+        }
+      } else {
+        console.error(`Failed to get domain. Status: ${domainResponse.status}`);
+      }
+    } catch (domainError) {
+      console.error("Error fetching domain:", domainError);
     }
 
-    // Fetch inertia version
-    const inertiaResponse = await fetch("https://repository.monflix.de/inertia.txt");
-    if (inertiaResponse.ok) {
-      SC_INERTIA_VERSION = (await inertiaResponse.text()).trim();
-      console.log(`Retrieved inertia version: ${SC_INERTIA_VERSION}`);
-    } else {
-      console.error("Failed to get inertia version from repository");
+    // Fetch inertia version with proper error handling
+    try {
+      const inertiaResponse = await fetch("https://repository.monflix.de/inertia.txt");
+      if (inertiaResponse.ok) {
+        const inertiaText = await inertiaResponse.text();
+        if (inertiaText && inertiaText.trim()) {
+          SC_INERTIA_VERSION = inertiaText.trim();
+          console.log(`Retrieved inertia version: ${SC_INERTIA_VERSION}`);
+        } else {
+          console.error("Inertia file is empty or contains whitespace only");
+        }
+      } else {
+        console.error(`Failed to get inertia version. Status: ${inertiaResponse.status}`);
+      }
+    } catch (inertiaError) {
+      console.error("Error fetching inertia version:", inertiaError);
     }
 
     // Update base URL
     SC_BASIC_URL = `https://${SC_DOMAIN}/`;
+    console.log(`Using SC_BASIC_URL: ${SC_BASIC_URL}`);
+    
   } catch (error) {
     console.error("Error initializing StreamingCommunity:", error);
     toast.error("Errore durante l'inizializzazione di StreamingCommunity");
@@ -321,7 +324,7 @@ export const getTvToken = async (episodeId: string, seriesId: string): Promise<s
 /**
  * Fetch movies by genre
  */
-export const fetchScMovies = async (genre: number, page: number = 1): Promise<any> => {
+export const fetchScMoviesByGenre = async (genre: number, page: number = 1): Promise<any[]> => {
   try {
     const offset = (page - 1) * 60; // 60 items per page
     const url = `${SC_BASIC_URL}api/archive?offset=${offset}&type=movie&genre[]=${genre}`;
@@ -338,10 +341,35 @@ export const fetchScMovies = async (genre: number, page: number = 1): Promise<an
     const movies = data.titles || [];
     console.log(`Found ${movies.length} movies for genre ${genre}`);
     
-    return { data: movies };
+    // Enrich with TMDB info
+    const enrichedMovies = await Promise.all(
+      movies.map(async (movie: any) => {
+        try {
+          const tmdbData = await getTmdbInfo(movie.name, "movie");
+          
+          if (tmdbData?.results?.length > 0) {
+            const movieInfo = tmdbData.results[0];
+            return {
+              ...movie,
+              poster_path: movieInfo.poster_path,
+              backdrop_path: movieInfo.backdrop_path,
+              overview: movieInfo.overview,
+              tmdbInfo: movieInfo
+            };
+          }
+          
+          return movie;
+        } catch (error) {
+          console.error("Error enriching movie:", error);
+          return movie;
+        }
+      })
+    );
+    
+    return enrichedMovies;
   } catch (error) {
-    console.error("Error fetching movies:", error);
-    return { data: [] };
+    console.error("Error fetching movies by genre:", error);
+    return [];
   }
 };
 
@@ -467,6 +495,48 @@ export const searchSeries = async (searchTerm: string): Promise<any[]> => {
   } catch (error) {
     console.error("Error searching series:", error);
     toast.error("Errore durante la ricerca delle serie TV");
+    return [];
+  }
+};
+
+/**
+ * Get movie categories based on the category mapping
+ */
+export const getMovieCategories = (): { id: string; name: string; genreIds: number[] }[] => {
+  return Object.entries(CATEGORY_MAPPING).map(([name, genreIds], index) => ({
+    id: `category_${index}`,
+    name,
+    genreIds
+  }));
+};
+
+/**
+ * Fetch movies from a specific category
+ */
+export const fetchMoviesByCategory = async (category: { name: string; genreIds: number[] }, page: number = 1): Promise<any[]> => {
+  try {
+    let allMovies: any[] = [];
+    
+    // Fetch movies for each genre ID in the category
+    for (const genreId of category.genreIds) {
+      const movies = await fetchScMoviesByGenre(genreId, page);
+      allMovies = [...allMovies, ...movies];
+    }
+    
+    // Remove duplicates by ID
+    const uniqueMovies = Object.values(
+      allMovies.reduce((acc: Record<string, any>, movie) => {
+        if (!acc[movie.id]) {
+          acc[movie.id] = movie;
+        }
+        return acc;
+      }, {})
+    );
+    
+    console.log(`Found ${uniqueMovies.length} unique movies for category ${category.name}`);
+    return uniqueMovies;
+  } catch (error) {
+    console.error(`Error fetching movies for category ${category.name}:`, error);
     return [];
   }
 };

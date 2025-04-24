@@ -22,6 +22,10 @@ const VODPlayer: React.FC = () => {
       setError(null);
       
       try {
+        if (!location.state) {
+          throw new Error("Dati di riproduzione mancanti");
+        }
+        
         const { type, movieId, episodeId, seriesId, title } = location.state as PlaybackSource;
         
         let videoUrl: string | null = null;
@@ -69,7 +73,7 @@ const VODPlayer: React.FC = () => {
   };
   
   const handleBack = () => {
-    navigate(-1);
+    navigate('/vod');
   };
   
   if (loading) {
@@ -122,6 +126,14 @@ const VODPlayer: React.FC = () => {
       {/* Title and info */}
       <div className="monflix-container py-6">
         <h1 className="text-2xl font-bold mb-4">{playbackSource.title}</h1>
+        <Button 
+          variant="outline" 
+          onClick={handleBack}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft size={16} />
+          <span>Torna a Film e Serie</span>
+        </Button>
       </div>
     </div>
   );
