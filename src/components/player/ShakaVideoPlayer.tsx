@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState } from "react";
-import * as shaka from "shaka-player";
+import shaka from "shaka-player";
 import { Button } from "@/components/ui/button";
 import { Volume2, VolumeX, Play, Pause } from "lucide-react";
 import { Channel } from "@/types";
@@ -13,7 +13,7 @@ interface ShakaVideoPlayerProps {
 
 const ShakaVideoPlayer: React.FC<ShakaVideoPlayerProps> = ({ channel, onError }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const playerRef = useRef<shaka.Player | null>(null);
+  const playerRef = useRef<any | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [playerInitialized, setPlayerInitialized] = useState(false);

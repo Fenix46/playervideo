@@ -1,135 +1,87 @@
-import React, { useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Film, Tv } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import SidebarLayout from "@/components/layout/SidebarLayout";
-import { Card, CardContent } from "@/components/ui/card";
 import { useAppContext } from "@/context/AppContext";
-import { generateMockChannels } from "@/lib/api";
-import { Channel } from "@/types";
-import { toast } from "sonner";
 
 const Home = () => {
-  const { state, dispatch } = useAppContext();
   const navigate = useNavigate();
-  const location = useLocation();
+  const { state } = useAppContext();
   
-  useEffect(() => {
-    // Redirect from invalid routes (like /movies) to /home
-    if (location.pathname !== "/home" && location.pathname !== "/") {
-      navigate("/home");
-      toast.info("Pagina non trovata, reindirizzamento alla home", {
-        duration: 3000,
-      });
-    }
-  }, [location.pathname, navigate]);
+  const featuredChannels = state.channelGroups
+    .flatMap(group => group.channels)
+    .slice(0, 6);
   
-  // Load mock channels if none exist
-  useEffect(() => {
-    if (!state.user?.isLoggedIn) {
-      navigate("/");
-      return;
-    }
-    
-    if (state.channelGroups.length === 0) {
-      const mockChannels = generateMockChannels();
-      dispatch({ type: "LOAD_CHANNELS", payload: mockChannels });
-    }
-  }, [state.user, state.channelGroups.length, dispatch, navigate]);
-  
-  const handleChannelClick = (channel: Channel) => {
-    dispatch({ type: "SET_ACTIVE_CHANNEL", payload: channel });
-    navigate(`/watch/${channel.id}`);
+  const handleChannelClick = (channelId: string) => {
+    navigate(`/watch/${channelId}`);
   };
   
   return (
     <SidebarLayout>
-      <div className="monflix-container fade-in">
-        <h1 className="text-3xl font-bold mb-6">Benvenuto su MonFlix</h1>
+      <div className="monflix-container py-6">
+        <h1 className="text-3xl font-bold mb-6">Benvenuto</h1>
         
-        {state.lastUpdated && (
-          <p className="text-sm text-muted-foreground mb-4">
-            Ultimo aggiornamento: {new Date(state.lastUpdated).toLocaleTimeString('it-IT')}
-          </p>
-        )}
+        {/* Main sections */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+          <Button 
+            variant="outline" 
+            size="lg" 
+            className="h-auto py-8 flex flex-col items-center space-y-4"
+            onClick={() => navigate('/channels')}
+          >
+            <Tv size={40} />
+            <div className="text-xl">Canali TV</div>
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="lg" 
+            className="h-auto py-8 flex flex-col items-center space-y-4"
+            onClick={() => navigate('/vod')}
+          >
+            <Film size={40} />
+            <div className="text-xl">Film e Serie TV</div>
+          </Button>
+        </div>
         
-        {/* Featured content */}
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4">Contenuti in evidenza</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {state.channelGroups.length > 0 && 
-              state.channelGroups[0].channels.slice(0, 3).map(channel => (
-                <Card 
-                  key={channel.id} 
-                  className="channel-card card-hover cursor-pointer"
-                  onClick={() => handleChannelClick(channel)}
-                >
-                  <CardContent className="p-0">
-                    <div className="aspect-video bg-muted relative overflow-hidden">
-                      {channel.logo ? (
-                        <img 
-                          src={channel.logo} 
-                          alt={channel.title} 
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-lg font-medium">{channel.title}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-medium">{channel.title}</h3>
-                      <p className="text-sm text-muted-foreground">{channel.groupTitle}</p>
-                    </div>
+        {/* Featured channels */}
+        {featuredChannels.length > 0 && (
+          <>
+            <h2 className="text-xl font-bold mb-4">Canali in evidenza</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {featuredChannels.map(channel => (
+                <Card key={channel.id} className="overflow-hidden">
+                  <CardContent className="p-4 flex items-center justify-center aspect-video">
+                    {channel.logo ? (
+                      <img 
+                        src={channel.logo} 
+                        alt={channel.title} 
+                        className="max-h-full max-w-full" 
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-muted flex items-center justify-center">
+                        <span className="text-sm text-muted-foreground text-center px-2">{channel.title}</span>
+                      </div>
+                    )}
                   </CardContent>
-                </Card>
-              ))
-            }
-          </div>
-        </section>
-        
-        {/* Channel categories */}
-        {state.channelGroups.map(group => (
-          <section key={group.title} className="mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">{group.title}</h2>
-              <button 
-                onClick={() => navigate(`/category/${encodeURIComponent(group.title)}`)}
-                className="text-sm text-primary hover:underline"
-              >
-                Vedi tutti
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {group.channels.slice(0, 5).map(channel => (
-                <Card 
-                  key={channel.id} 
-                  className="channel-card card-hover cursor-pointer"
-                  onClick={() => handleChannelClick(channel)}
-                >
-                  <CardContent className="p-0">
-                    <div className="aspect-video bg-muted relative overflow-hidden">
-                      {channel.logo ? (
-                        <img 
-                          src={channel.logo} 
-                          alt={channel.title} 
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-lg font-medium">{channel.title}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-3">
-                      <h3 className="font-medium truncate">{channel.title}</h3>
-                    </div>
-                  </CardContent>
+                  <CardFooter className="p-2">
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      className="w-full" 
+                      onClick={() => handleChannelClick(channel.id)}
+                    >
+                      Guarda
+                    </Button>
+                  </CardFooter>
                 </Card>
               ))}
             </div>
-          </section>
-        ))}
+          </>
+        )}
       </div>
     </SidebarLayout>
   );

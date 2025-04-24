@@ -10,6 +10,8 @@ import Home from "./pages/Home";
 import Channels from "./pages/Channels";
 import Category from "./pages/Category";
 import Player from "./pages/Player";
+import VOD from "./pages/VOD";
+import VODPlayer from "./pages/VODPlayer";
 import Guide from "./pages/Guide";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -89,6 +91,23 @@ const App = () => (
               element={
                 <AuthGuard>
                   <Player />
+                </AuthGuard>
+              }
+            />
+            {/* New VOD routes */}
+            <Route
+              path="/vod"
+              element={
+                <AuthGuard>
+                  <VOD />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/vod/watch"
+              element={
+                <AuthGuard>
+                  <VODPlayer />
                 </AuthGuard>
               }
             />
