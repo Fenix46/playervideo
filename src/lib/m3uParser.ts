@@ -19,21 +19,28 @@ export function parseM3U(content: string): Channel[] {
     if (line.startsWith("#EXTINF:")) {
       currentChannel = { streamProps: {} };
       
-      // Extract title and metadata attributes from the EXTINF line
-      const metadataMatch = line.match(/#EXTINF:.*?tvg-logo="([^"]*)".*?staff-id="([^"]*)".*?group-title="([^"]*)",\s*(.*)$/);
+      // Extract title from the EXTINF line
+      const titleMatch = line.match(/#EXTINF:.*,\s*(.*)$/);
+      if (titleMatch) {
+        currentChannel.title = titleMatch[1];
+      }
       
-      if (metadataMatch) {
-        const [_, logo, staffId, groupTitle, title] = metadataMatch;
-        currentChannel.logo = logo;
-        currentChannel.staffId = staffId;
-        currentChannel.groupTitle = groupTitle;
-        currentChannel.title = title;
-      } else {
-        // Fallback for simpler EXTINF format
-        const titleMatch = line.match(/#EXTINF:.*,\s*(.*)$/);
-        if (titleMatch) {
-          currentChannel.title = titleMatch[1];
-        }
+      // Extract logo from tvg-logo attribute
+      const logoMatch = line.match(/tvg-logo="([^"]*)"/);
+      if (logoMatch) {
+        currentChannel.logo = logoMatch[1];
+      }
+      
+      // Extract group-title
+      const groupMatch = line.match(/group-title="([^"]*)"/);
+      if (groupMatch) {
+        currentChannel.groupTitle = groupMatch[1];
+      }
+      
+      // Extract staff-id if available
+      const staffIdMatch = line.match(/staff-id="([^"]*)"/);
+      if (staffIdMatch) {
+        currentChannel.staffId = staffIdMatch[1];
       }
       
       currentChannel.id = `channel_${channels.length + 1}`;
